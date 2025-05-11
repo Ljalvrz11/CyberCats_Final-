@@ -6,6 +6,8 @@ import EventCard from '../components/EventCard';
 import EventModal from '../components/EventModal';
 import '../styles/EventsPage.css';
 
+const backendBaseUrl = "http://localhost:8000";
+
 const EventsPage = () => {
   const [user, setUser] = useState(null);
   const [events, setEvents] = useState([]);
@@ -13,7 +15,7 @@ const EventsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isEventsLoading, setIsEventsLoading] = useState(true);
   const token = localStorage.getItem('accessToken');
-
+  
   useEffect(() => {
     async function fetchProfile() {
       try {
@@ -27,11 +29,11 @@ const EventsPage = () => {
     }
     fetchProfile();
   }, [token]);
-
+  
   useEffect(() => {
     async function fetchEvents() {
+      setIsEventsLoading(true);
       try {
-        setIsEventsLoading(true);
         const eventsData = await getEvents(token);
         setEvents(eventsData);
       } catch (error) {
@@ -42,15 +44,26 @@ const EventsPage = () => {
     }
     fetchEvents();
   }, [token]);
-
-  const handleCardClick = (event) => {
-    setSelectedEvent(event);
+  
+  const handleCardClick = async (event) => {
+    try {
+      const res = await fetch(`${backendBaseUrl}/events/${event.id}/participants`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const participants = await res.json();
+      setSelectedEvent({ ...event, participants });
+    } catch (error) {
+      console.error('Failed to fetch participants:', error);
+      setSelectedEvent(event); // fallback without participants
+    }
   };
-
+  
   const closeModal = () => {
     setSelectedEvent(null);
   };
-
+  
   const handleParticipate = async (eventId) => {
     try {
       await joinEvent(eventId, token);
@@ -61,7 +74,7 @@ const EventsPage = () => {
       console.error('Failed to join event:', error);
     }
   };
-
+  
   const handleNotParticipate = async (eventId) => {
     try {
       await leaveEvent(eventId, token);
@@ -72,7 +85,7 @@ const EventsPage = () => {
       console.error('Failed to leave event:', error);
     }
   };
-
+  
   const today = new Date();
   const formattedDate = today.toLocaleString('en-US', {
     weekday: 'long',
@@ -82,7 +95,7 @@ const EventsPage = () => {
     hour: '2-digit',
     minute: '2-digit'
   });
-
+  
   // Show full-screen loading state if initial user data is loading
   if (isLoading) {
     return <div className="loading">Loading Events...</div>;
@@ -91,7 +104,7 @@ const EventsPage = () => {
   if (!user) {
     return <div className="error-message">Unable to load user data. Please try again later.</div>;
   }
-
+  
   return (
     <div className="layout-container">
       <Sidebar user={user} />
@@ -121,6 +134,7 @@ const EventsPage = () => {
             onClose={closeModal}
             onParticipate={handleParticipate}
             onNotParticipate={handleNotParticipate}
+            currentUserId={user.id}
           />
         )}
       </div>
